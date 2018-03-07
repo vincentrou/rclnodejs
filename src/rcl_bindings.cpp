@@ -16,6 +16,7 @@
 
 #include <rcl/error_handling.h>
 #include <rcl/expand_topic_name.h>
+#include <rcl/graph.h>
 #include <rcl/node.h>
 #include <rcl/rcl.h>
 #include <rcl/validate_topic_name.h>
@@ -687,6 +688,24 @@ NAN_METHOD(Shutdown) {
   info.GetReturnValue().Set(Nan::Undefined());
 }
 
+NAN_METHOD(GetNodeNames) {
+  rcl_allocator_t allocator = rcl_get_default_allocator();
+  RclHandle* node_handle = RclHandle::Unwrap<RclHandle>(info[0]->ToObject());
+  rcl_node_t* node = reinterpret_cast<rcl_node_t*>(node_handle->ptr());
+  rcutils_string_array_t node_names = rcutils_get_zero_initialized_string_array();
+  
+  rcl_ret_t ret = rcl_get_node_names(node, allocator, &node_names);
+
+  THROW_ERROR_IF_NOT_EQUAL(RCL_RET_OK, ret, rcl_get_error_string_safe());
+
+  v8::Local<v8::Array> result_list =  Nan::New<v8::Array>(node_names.size);
+  size_t idx;
+  for (idx = 0; idx < node_names.size; ++idx) {
+    Nan::Set(result_list, idx, Nan::New<v8::String>(std::string(node_names.data[idx])).ToLocalChecked());
+  }
+  info.GetReturnValue().Set(result_list);
+}
+
 NAN_METHOD(InitString) {
     void* buffer = node::Buffer::Data(info[0]->ToObject());
     rosidl_generator_c__String* ptr =
@@ -784,6 +803,7 @@ BindingMethod binding_methods[] = {
     {"freeMemeoryAtOffset", FreeMemeoryAtOffset},
     {"createArrayBufferFromAddress", CreateArrayBufferFromAddress},
     {"createArrayBufferCleaner", CreateArrayBufferCleaner},
+    {"getNodeNames", GetNodeNames},
     {"", nullptr}};
 
 }  // namespace rclnodejs
